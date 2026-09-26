@@ -329,7 +329,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
                   trong con số Lương (cột P.cấp của bảng là phụ cấp THÁNG, khác hẳn) →
                   tách 2 dòng cho khỏi tưởng bảng lương bỏ sót phụ cấp phiếu. */}
               <Row label="Tiền sản phẩm (cây × đơn giá phiếu)"
-                val={`${money((r.luong_goc || r.luong) - (r.pc_phieu || 0))}đ`} />
+                val={`${money((r.luong_goc || r.luong) - (r.pc_phieu || 0) - (r.tc_sp || 0))}đ`} />
+              {r.tc_sp ? <Row label={`Tăng ca theo giờ phiếu SX${r.tc_sp_min ? ` (${r.tc_sp_min} phút)` : ""} · +20% đơn giá`} val={`+${money(r.tc_sp)}đ`} /> : null}
               <Row label="Phụ cấp ghi trong phiếu SX" val={`+${money(r.pc_phieu || 0)}đ`} />
               {r.tru_an ? (
                 <Row label="Trừ ẩn (không in lên phiếu của thợ)" val={`−${money(r.tru_an)}đ`} cls="t-danger" />

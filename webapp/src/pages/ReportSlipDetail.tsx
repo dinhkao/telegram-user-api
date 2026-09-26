@@ -138,6 +138,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
         <div class="muted small">
           tổng cộng {soVN(rep.totals.cay)} SP · {rep.workers.length} thợ · {rep.phieus.length} phiếu SX
           {(rep.totals.allowance || 0) > 0 ? ` · gồm phụ cấp ${money(rep.totals.allowance)}` : ""}
+          {((rep.totals as any).ot_money || 0) > 0 ? ` · gồm tăng ca ${money((rep.totals as any).ot_money)}` : ""}
         </div>
         {slip.worker_names && slip.worker_names.length > 0 && (
           <div class="muted small rs-only-workers">👤 Chỉ tính: <b>{slip.worker_names.join(", ")}</b></div>
@@ -181,6 +182,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
                     <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={14} />
                     <span class="wg-wk-name">{w.name}</span>
                     {(w.allowance || 0) > 0 ? <span class="wg-wk-pc">+PC {money(w.allowance)}</span> : null}
+                    {((w as any).ot_money || 0) > 0 ? <span class="wg-wk-pc t-warn" title={`Tăng ca theo giờ phiếu SX${(w as any).ot_min ? ` — ${(w as any).ot_min} phút` : ""}: +20% đơn giá phần cây làm sau 17h / chủ nhật`}>+TC {money((w as any).ot_money)}</span> : null}
                     <span class="wg-wk-cay muted small">{soVN(w.cay)} SP</span>
                     <span class="wg-wk-money">{money(w.money)}</span>
                   </button>
@@ -202,7 +204,8 @@ export function ReportSlipDetail({ id }: { id: string }) {
                                 <span class="wg-item-code">{it.code || "?"}</span>
                                 <span class="wg-item-calc muted small">{((it as any).gio || 0) > 0
                                   ? <>{soVN((it as any).gio)} giờ × {soVN((it as any).hourly_rate || 0)}đ</>
-                                  : <>{soVN(it.cay)} SP × {soVN(it.wage)}đ</>}</span>
+                                  : <>{soVN(it.cay)} SP × {soVN(it.wage)}đ</>}
+                                  {((it as any).ot_money || 0) > 0 ? <span class="t-warn"> + TC {money((it as any).ot_money)}{(it as any).ot_min ? ` (${(it as any).ot_min}p)` : ""}</span> : null}</span>
                                 <span class="wg-item-money">{money(it.money)}</span>
                               </div>
                             ))}
@@ -214,7 +217,8 @@ export function ReportSlipDetail({ id }: { id: string }) {
                             <span class="wg-item-code">{it.code || "?"}</span>
                             <span class="wg-item-calc muted small">{((it as any).gio || 0) > 0
                               ? <>{soVN((it as any).gio)} giờ × {soVN((it as any).hourly_rate || 0)}đ</>
-                              : <>{soVN(it.cay)} SP × {soVN(it.wage)}đ</>}</span>
+                              : <>{soVN(it.cay)} SP × {soVN(it.wage)}đ</>}
+                              {((it as any).ot_money || 0) > 0 ? <span class="t-warn"> + TC {money((it as any).ot_money)}</span> : null}</span>
                             <span class="wg-item-money">{money(it.money)}</span>
                           </div>
                         ))

@@ -89,6 +89,10 @@ export function WagePivotCell({ cell, data, onClose }: {
         counted += v;
         rows.push({ l: <>{soVN(p.cay)} cây × {money(p.wage)}đ/cây</>, r: `${money(v)}đ` });
       }
+      if (p.ot) {   // phụ trội tăng ca (giờ ghi trong phiếu lố 17:15 / chủ nhật)
+        counted += p.ot;
+        rows.push({ l: <span class="t-warn">Tăng ca{p.ot_min ? ` ${p.ot_min} phút` : ""} (+20% đơn giá)</span>, r: `${money(p.ot)}đ` });
+      }
     }
     // phần dôi ra = phụ cấp ghi trong phiếu (đã gộp sẵn vào tiền) — nói rõ ra
     const rest = total - counted;

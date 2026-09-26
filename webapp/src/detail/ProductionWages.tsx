@@ -6,7 +6,7 @@
 // Data: phieuWages() (đơn giá + phụ cấp), setPhieuWage(), setAllowance().
 // Server chặn 403 nếu không office.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { phieuWages, setAllowance, setPhieuWage, soVN } from "../api";
+import { phieuWages, setAllowance, setPhieuWage, soVN, type PhieuWages } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
@@ -20,6 +20,7 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
   const [wageDraft, setWageDraft] = useState<string | null>(null);
   const [allow, setAllow] = useState<Record<string, number>>({});
   const [hourly, setHourly] = useState<Record<string, number>>({});   // tiền 1 GIỜ theo thợ
+  const [ot, setOt] = useState<{ map: PhieuWages["overtime"]; pct: number }>({ map: {}, pct: 0 });   // tăng ca theo giờ phiếu
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [allowPop, setAllowPop] = useState<string | null>(null); // popup phụ cấp: tên thợ đang chọn
@@ -29,7 +30,7 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
   useEffect(() => {
     let ok = true;
     const load = () =>
-      phieuWages(threadId).then((d) => { if (ok) { setWage(d.wage); setDefaultWage(d.default_wage); setAllow(d.allowances || {}); setHourly(d.hourly_rates || {}); setLoaded(true); } }).catch(() => { if (ok) setLoaded(true); });
+      phieuWages(threadId).then((d) => { if (ok) { setWage(d.wage); setDefaultWage(d.default_wage); setAllow(d.allowances || {}); setHourly(d.hourly_rates || {}); setOt({ map: d.overtime || {}, pct: d.ot_pct || 0 }); setLoaded(true); } }).catch(() => { if (ok) setLoaded(true); });
     load();
     // đổi tiền 1 giờ / bảng lương từ máy khác → tải lại đơn giá (khỏi kẹt số cũ).
     // production_changed của CHÍNH phiếu: lưu báo cáo có thể vừa áp PHỤ CẤP TỰ ĐỘNG
@@ -89,15 +90,18 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
   // có thể lệch case với tên đăng ký; server vốn khớp NOCASE, client phải giống
   const hourlyLower: Record<string, number> = {};
   for (const [k, v] of Object.entries(hourly)) hourlyLower[k.trim().toLowerCase()] = v;
-  let totPiece = 0, totAllow = 0;
+  let totPiece = 0, totAllow = 0, totOt = 0;
   const rows = list.map((w) => {
     // dòng có SỐ GIỜ = SP tính lương theo giờ → tiền = giờ × tiền-1-giờ của thợ
     const gio = w.gio || 0;
     const rate = hourlyLower[w.name.trim().toLowerCase()] || 0;
     const piece = gio > 0 ? Math.round(gio * rate) : Math.round(w.cay * wage);
     const a = allow[w.name] || 0;
-    totPiece += piece; totAllow += a;
-    return { name: w.name, cay: w.cay, gio, rate, piece, a, note: (w.note || "").trim() };
+    // phụ trội TĂNG CA (cùng công thức server production_store/overtime.ot_money) — chỉ dòng cây
+    const o = ot.map[w.name];
+    const otMoney = o && gio <= 0 ? Math.round(w.cay * wage * o.frac * ot.pct) : 0;
+    totPiece += piece; totAllow += a; totOt += otMoney;
+    return { name: w.name, cay: w.cay, gio, rate, piece, a, ot: otMoney, otMin: o?.min || 0, note: (w.note || "").trim() };
   });
   // Xếp hạng theo TIỀN SP (không tính phụ cấp) cho popup "bằng người cao nhất/nhì/ba"
   const ranked = [...rows].sort((x, y) => y.piece - x.piece);
@@ -135,7 +139,7 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
           onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
         <span class="muted small">đ/SP</span>
         {defaultWage !== wage ? <span class="pw-wage-note muted small">bảng lương: {soVN(defaultWage)}đ</span> : null}
-        <span>· Tổng <b>{money(totPiece + totAllow)}</b></span>
+        <span>· Tổng <b>{money(totPiece + totOt + totAllow)}</b></span>
       </div>
       <div class="prod-report-scroll">
         <table class="prod-report-table pw-table">
@@ -151,6 +155,7 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
                   {r.gio > 0
                     ? <span class="muted pw-sub"> {soVN(r.gio)}giờ×{soVN(r.rate)}{r.rate <= 0 ? " ⚠ chưa đặt tiền 1 giờ" : ""}</span>
                     : <span class="muted pw-sub"> {soVN(r.cay)}×{soVN(wage)}</span>}
+                  {r.ot ? <div class="pw-sub t-warn" title={`Tăng ca theo giờ ghi trong phiếu: +${Math.round(ot.pct * 100)}% đơn giá cho phần cây làm trong giờ tăng ca`}>+{money(r.ot)} tăng ca{r.otMin ? ` ${r.otMin}p` : ""}</div> : null}
                 </td>
                 <td class="pw-allow">
                   {/* Mặc định readOnly (mobile không bật bàn phím) → bấm mở popup chọn
@@ -164,12 +169,12 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
                     onBlur={() => { if (manual === r.name) { save(r.name); setManual(null); } }}
                     onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                 </td>
-                <td class="pw-total">{money(r.piece + r.a)}</td>
+                <td class="pw-total">{money(r.piece + r.ot + r.a)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr><td>TỔNG CỘNG</td><td>{money(totPiece)}</td><td>{money(totAllow)}</td><td class="pw-total">{money(totPiece + totAllow)}</td></tr>
+            <tr><td>TỔNG CỘNG</td><td>{money(totPiece + totOt)}</td><td>{money(totAllow)}</td><td class="pw-total">{money(totPiece + totOt + totAllow)}</td></tr>
           </tfoot>
         </table>
       </div>

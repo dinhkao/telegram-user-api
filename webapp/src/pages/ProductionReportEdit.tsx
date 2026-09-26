@@ -25,6 +25,21 @@ const NOTE_PRESETS = ["nghỉ", "vít kẹo", "rắc mè", "rắc dừa", "gỡ 
 // spDe/mamDe = 2 cột ĐÈ như sheet (F "Số SP đè" / G "Số mâm đè"): mâm đè thay công
 // thức gạch×5−trừ−lẻ; SP đè thay toàn bộ tổng. Rỗng = không đè (ISBLANK sheet).
 const todayVN = (): string => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
+// GỢI Ý tăng ca của CHÍNH phiếu này (luật đủ ở production_store/overtime.py — tính theo
+// giờ kết thúc CUỐI NGÀY của thợ, server là nguồn sự thật): từ 01/09/2026, chủ nhật =
+// toàn bộ; ngày thường giờ xong > 17:15 → đếm từ 17:00.
+const otHint = (date: string, start: string, end: string): string => {
+  const m = date.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return "";
+  const d = new Date(+m[3], +m[2] - 1, +m[1]);
+  if (d < new Date(2026, 8, 1)) return "";
+  if (d.getDay() === 0) return "Chủ nhật: tăng ca toàn bộ";
+  const mm = (t: string) => { const n = normTime(t); return /^\d{2}:\d{2}$/.test(n) ? +n.slice(0, 2) * 60 + +n.slice(3) : null; };
+  const s = mm(start), e = mm(end);
+  if (e == null || e <= 17 * 60 + 15) return "";
+  const ot = e - Math.max(s ?? 0, 17 * 60);
+  return ot > 0 ? `Tăng ca ${ot} phút` : "";
+};
 const blankRow = (name = ""): Wrow => ({ name, gach: "", tru: "", le: "", note: "", spDe: "", mamDe: "", gio: "" });
 // Seed bảng: có báo cáo đã lưu → dùng nó; trống → tự điền thợ mặc định (template);
 // không có template → 1 dòng trống.
@@ -345,6 +360,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           <label><Icon name="calendar" size={14} /> <input class="wr-meta" value={date} disabled={readOnly} onInput={(e: any) => setDate(e.target.value)} placeholder="d/m/yyyy" /></label>
           {/* Giờ: 1 format HH:MM — gõ "7" / "7.30" / "1330" / "4.15" (=16:15), rời ô là tự quy về 07:00… */}
           <label title="Giờ bắt đầu – xong (HH:MM). Gõ 7 · 7.30 · 1330; giờ 1–6 hiểu là buổi chiều"><Icon name="clock" size={14} /> <input class={"wr-meta wr-time" + (isTimeOk(start) ? "" : " wr-time-bad")} inputMode="decimal" value={start} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setStart(e.target.value)} onBlur={() => setStart((v) => normTime(v))} placeholder="07:00" />–<input class={"wr-meta wr-time" + (isTimeOk(end) ? "" : " wr-time-bad")} inputMode="decimal" value={end} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setEnd(e.target.value)} onBlur={() => setEnd((v) => normTime(v))} placeholder="11:00" /></label>
+          {otHint(date, start, end) && <span class="t-warn small" title="Phần cây làm trong giờ tăng ca được cộng thêm 20% đơn giá">⏱ {otHint(date, start, end)}</span>}
         </div>
         {scm <= 0 && <div class="prod-save-msg">⚠️ SP chưa có số cây 1 mâm — chọn mã SP để tính tổng.</div>}
 

@@ -126,6 +126,8 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                     "code": it.get("code") or "", "cay": float(it.get("cay") or 0),
                     "wage": float(it.get("wage") or 0), "gio": float(it.get("gio") or 0),
                     "rate": float(it.get("hourly_rate") or 0), "money": m,
+                    # phụ trội TĂNG CA (đã nằm trong money) — popup tách riêng khỏi "phụ cấp"
+                    "ot": int(it.get("ot_money") or 0), "ot_min": int(it.get("ot_min") or 0),
                 })
                 if not s["code"] and it.get("code"):
                     s["code"] = it["code"]

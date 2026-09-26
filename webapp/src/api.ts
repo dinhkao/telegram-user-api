@@ -1579,6 +1579,8 @@ export type PayrollRow = {
   // pc_phieu = phụ cấp ghi trong PHIẾU SX (production_allowances) — ĐÃ nằm TRONG luong
   // của thợ lương SP; KHÁC phu_cap (phụ cấp THÁNG, salary_allowances). Đừng cộng 2 lần.
   pc_phieu: number;
+  // tc_sp = phụ trội TĂNG CA theo giờ phiếu SX (+20% cây làm sau 17h/chủ nhật) — cũng ĐÃ nằm TRONG luong
+  tc_sp?: number; tc_sp_min?: number;
   // MỐC lương lưu theo TỪNG THÁNG (salary_store/moc.py): moc_ym = mốc này đặt ở tháng
   // nào ("" = mốc mặc định hồ sơ thợ), moc_own = đặt RIÊNG cho tháng đang xem
   moc_ym: string; moc_own: boolean;
@@ -1614,7 +1616,8 @@ export type SalaryAllowance = { id: number; worker_id: number; ym: string; amoun
 // cells khoá theo worker_id dạng CHUỖI (JSON object key). Tiền = đồng.
 // parts = cấu thành số tiền của TỪNG Ô phiếu (cây × đơn giá / giờ × đơn giá giờ).
 // ⚠ phụ cấp phiếu đã GỘP sẵn vào money nên phần dôi ra = tiền ô − Σ(cây × đơn giá).
-export type WagePivotPart = { code: string; cay: number; wage: number; gio: number; rate: number; money: number };
+export type WagePivotPart = { code: string; cay: number; wage: number; gio: number; rate: number; money: number;
+  ot?: number; ot_min?: number };   // ot = phụ trội TĂNG CA (đã nằm trong money)
 export type WagePivotSlip = { thread_id: number; code: string; start: string; end: string; total: number; cells: Record<string, number>; parts?: Record<string, WagePivotPart[]>;
   // ghi chú / phụ cấp / số cây của TỪNG THỢ trong phiếu (cho popup chi tiết ô)
   notes?: Record<string, string>; pc?: Record<string, number>; cay?: Record<string, number> };
@@ -1861,10 +1864,13 @@ export async function getAuxLoss(limit = 30): Promise<AuxLossResp> {
 
 export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number; piece?: number; allowance?: number; so_gio?: number | null; hourly_rate?: number };
 // Tiền công + phụ cấp của 1 PHIẾU (office only)
-export type PhieuWages = { product_code: string; wage: number; default_wage: number; custom: boolean; allowances: Record<string, number>; hourly_rates: Record<string, number> };
+export type PhieuWages = { product_code: string; wage: number; default_wage: number; custom: boolean; allowances: Record<string, number>; hourly_rates: Record<string, number>;
+  // TĂNG CA theo giờ ghi trong phiếu (production_store/overtime.py): tên thợ → phút + tỉ lệ thời gian phiếu nằm trong TC
+  overtime: Record<string, { min: number; frac: number }>; ot_pct: number };
 export async function phieuWages(threadId: string | number): Promise<PhieuWages> {
   const d = await getJSON(`/api/production/${threadId}/wages`, { cache: false });
-  return { product_code: d.product_code || "", wage: d.wage || 0, default_wage: d.default_wage || 0, custom: !!d.custom, allowances: d.allowances || {}, hourly_rates: d.hourly_rates || {} };
+  return { product_code: d.product_code || "", wage: d.wage || 0, default_wage: d.default_wage || 0, custom: !!d.custom, allowances: d.allowances || {}, hourly_rates: d.hourly_rates || {},
+    overtime: d.overtime || {}, ot_pct: d.ot_pct || 0 };
 }
 /** Chốt/sửa đơn giá lương /1SP của RIÊNG 1 phiếu (office). */
 export async function setPhieuWage(threadId: string | number, luong: number): Promise<any> {

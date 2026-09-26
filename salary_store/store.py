@@ -423,7 +423,8 @@ def compute_month_payroll(conn, ym: str) -> dict:
         rep = compute_range_report(conn, mstart, mend, worker_ids=product_ids)
         for w in rep["workers"]:
             wage_by_name[(w.get("name") or "").strip().casefold()] = (
-                float(w.get("money") or 0), float(w.get("allowance") or 0))
+                float(w.get("money") or 0), float(w.get("allowance") or 0),
+                float(w.get("ot_money") or 0), int(w.get("ot_min") or 0))
     # công + tăng ca theo thợ từ máy chấm công (đã gộp sửa tay)
     import attendance_store
     attendance_store.ensure_schema(conn)
@@ -464,13 +465,15 @@ def compute_month_payroll(conn, ym: str) -> dict:
         cong_hien = round(cong, 2)
         luong_cong = luong_tc = 0.0
         pc_phieu = 0.0            # phụ cấp PHIẾU SX đã gộp trong lương SP (để UI tách ra)
+        tc_sp, tc_sp_min = 0.0, 0 # phụ trội TĂNG CA theo giờ phiếu SX — cũng đã gộp trong lương SP
         tru_an = float(a.get("tru_an") or 0)
         # LƯƠNG TRƯỚC KHI TRỪ ẨN — dùng 2 chỗ: gốc tính phụ cấp %, và số coi như
         # ĐÃ TRẢ khi thợ nhận lương tuần. Thợ lương thời gian không có trừ ẩn nên
         # bằng chính lương của họ.
         luong_goc = 0.0
         if wt == "product":
-            luong, pc_phieu = wage_by_name.get(w["name"].strip().casefold(), (0.0, 0.0))
+            luong, pc_phieu, tc_sp, tc_sp_min = wage_by_name.get(
+                w["name"].strip().casefold(), (0.0, 0.0, 0.0, 0))
             # SỐ TRỪ ẨN: trừ thẳng vào lương SP. Chặn ở 0 — lương âm in ra phiếu là
             # hỏng; trừ quá lương thì UI cảnh báo để văn phòng chuyển sang ghi ứng.
             luong_goc = luong
@@ -545,6 +548,9 @@ def compute_month_payroll(conn, ym: str) -> dict:
             # phụ cấp ghi trong PHIẾU SX (production_allowances) — ĐÃ nằm TRONG `luong`,
             # tách ra để bảng lương nói rõ, đừng cộng lần nữa
             "pc_phieu": round(pc_phieu),
+            # phụ trội TĂNG CA theo giờ phiếu SX (production_store/overtime.py) — ĐÃ nằm
+            # TRONG `luong`, tách ra cho popup; tc_sp_min = tổng phút tăng ca
+            "tc_sp": round(tc_sp), "tc_sp_min": tc_sp_min,
         })
         # Cộng dồn SỐ ĐÃ LÀM TRÒN (đúng số in trên dòng) — cộng float thô rồi
         # round 1 lần làm tổng cột lệch tổng các dòng tới ~N/2 đồng.

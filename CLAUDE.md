@@ -1541,6 +1541,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     `production_workers.hourly_rate` (đặt ở `#/sx-tho/:name`, office-only qua POST
     `/api/workers/{id}`) THAY cây × đơn giá. Cả 4 chỗ tính tiền xử lý; thợ có giờ chưa
     đặt đơn giá → cảnh báo `missing_hour_rate`/`giờ: <tên>`, dòng hiện 0đ + ⚠.
+  - **TĂNG CA theo GIỜ GHI TRONG PHIẾU (2026-09-26, `production_store/overtime.py`,
+    KHÔNG dùng máy chấm công)**: ngày thường giờ KẾT THÚC MUỘN NHẤT trong ngày của thợ
+    > 17:15 → tăng ca đếm từ 17:00 (xét theo NGÀY — phiếu 16:10–17:10 vẫn góp 10' nếu
+    phiếu sau kéo tới 17:30); lố trưa KHÔNG tính; CHỦ NHẬT = toàn bộ là tăng ca. Tiền
+    (cách B) = cây tính tiền × đơn giá × tỉ lệ thời gian phiếu nằm trong TC × **20%**,
+    CỘNG THÊM (cây vẫn trả 100%); dòng lương giờ không có phụ trội. Áp từ ngày báo cáo
+    `OT_SINCE` = 2026-09-01. Gộp vào `money` ở `compute_range_report` (trả `ot_money`/
+    `ot_min` theo thợ + item ngày, `totals.ot_money`) và `production_wages.compute_wages`
+    → bảng lương (`tc_sp`/`tc_sp_min`, tách dòng ở popup Lương SP), phiếu báo cáo, pivot
+    (parts `ot`), khối tiền phiếu (`/wages` trả `overtime` + `ot_pct`, client tự nhân).
+    Trang nhập báo cáo hiện gợi ý "⏱ Tăng ca N phút" (chỉ theo giờ phiếu đó). Tests:
+    `tests/test_production_overtime.py`.
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav

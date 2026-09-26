@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 
+from production_store.overtime import ot_money, overtime_map
 from production_store.time_fmt import normalize_time, time_minutes
 from utils.db import transaction
 
@@ -151,7 +152,8 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
     """Báo cáo 1 khoảng ngày: THEO THỢ (tổng SP + tiền, breakdown theo mã SP) +
     THEO PHIẾU SX (mỗi phiếu: ngày, mã SP, số SP, tiền công) + TỔNG CỘNG.
     Tiền = số cây × ĐƠN GIÁ CHỐT THEO PHIẾU (production_slips.luong_1sp; NULL =
-    chưa chốt → bảng lương hiện tại) + phụ cấp (gắn 1 lần / (phiếu, thợ)).
+    chưa chốt → bảng lương hiện tại) + phụ cấp (gắn 1 lần / (phiếu, thợ)) + PHỤ TRỘI
+    TĂNG CA theo giờ phiếu (production_store.overtime; `ot_money` ĐÃ GỘP trong `money`).
     worker_ids: CHỈ TÍNH các thợ này (khớp theo tên hiện hành); None = mọi thợ."""
     from production_store.wages import wage_per_cay
 
@@ -204,8 +206,12 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             except (TypeError, ValueError):
                 b = {}
             times[r["tid"]] = (normalize_time(b.get("start")), normalize_time(b.get("end")))
+    # TĂNG CA theo giờ ghi trong phiếu (production_store.overtime) — khoá (tid, thợ hiện hành)
+    ots = overtime_map([(r["tid"], r["ymd"], r["worker"] or "?") for r in rows
+                        if float(r["cay"] or 0) > 0], times)
     missing: set = set()
     allow_used: set = set()   # (tid, wname) đã cộng phụ cấp — chỉ cộng 1 lần
+    ot_min_used: set = set()
 
     for r in rows:
         tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
@@ -230,12 +236,23 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         if (tid, wname) not in allow_used:
             a = round(allow.get((tid, wname), 0))
             allow_used.add((tid, wname))
+        # phụ trội TĂNG CA — cộng vào phần CÂY (dòng giờ không có phụ trội)
+        ot_min, ot_frac = ots.get((tid, worker), (0, 0.0))
+        ot = ot_money(cay_piece, wage, ot_frac)
+        piece_sp += ot
         money = piece_sp + piece_gio + a
         if cay == 0 and money == 0 and gio == 0:
             continue   # dòng rỗng (phiếu chưa gán SP / thợ 0 SP) — đừng sinh dòng "?" 0đ
             # (có GIỜ vẫn hiện — thợ làm giờ chưa đặt đơn giá phải thấy được ⚠)
 
-        wk = workers.setdefault(worker, {"name": worker, "cay": 0.0, "money": 0, "allowance": 0, "items": {}, "days": {}})
+        wk = workers.setdefault(worker, {"name": worker, "cay": 0.0, "money": 0, "allowance": 0,
+                                         "ot_money": 0, "ot_min": 0, "items": {}, "days": {}})
+        if ot:
+            wk["ot_money"] += ot
+            # phút TC tính 1 lần / (phiếu, thợ) dù phiếu tách nhiều mã
+            if (tid, worker) not in ot_min_used:
+                ot_min_used.add((tid, worker))
+                wk["ot_min"] += ot_min
         # item tách theo (mã, đơn giá, tính-giờ) — dòng giờ và dòng cây không trộn
         pieces = []   # (hourly, cay hiển thị, gio, tiền phần đó)
         if gio > 0:
@@ -247,11 +264,13 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             add_a = a if first else 0   # phụ cấp gắn 1 lần vào phần đầu
             first = False
             it = wk["items"].setdefault((code, wage, hourly), {
-                "code": code, "cay": 0.0, "wage": wage, "money": 0,
+                "code": code, "cay": 0.0, "wage": wage, "money": 0, "ot_money": 0,
                 "gio": 0.0, "hourly_rate": hrate if hourly else 0})
+            p_ot = 0 if hourly else ot
             it["cay"] = round(it["cay"] + p_cay, 1)
             it["gio"] = round(it["gio"] + p_gio, 2)
             it["money"] += p_money + add_a
+            it["ot_money"] += p_ot
             dy = wk["days"].setdefault(ymd or "", {"ymd": ymd or "", "cay": 0.0, "money": 0, "items": {}})
             dy["cay"] = round(dy["cay"] + p_cay, 1)
             dy["money"] += p_money + add_a
@@ -261,10 +280,12 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
                 "code": code, "cay": 0.0, "wage": wage, "money": 0,
                 "gio": 0.0, "hourly_rate": hrate if hourly else 0,
                 "start": st, "end": en, "thread_id": tid,
+                "ot_money": 0, "ot_min": 0 if hourly else ot_min,
             })
             di["cay"] = round(di["cay"] + p_cay, 1)
             di["gio"] = round(di["gio"] + p_gio, 2)
             di["money"] += p_money + add_a
+            di["ot_money"] += p_ot
         wk["cay"] = round(wk["cay"] + cay, 1)
         wk["money"] += money
         wk["allowance"] += a
@@ -283,7 +304,8 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             continue
         if only_cf is not None and str(wname or "").strip().casefold() not in only_cf:
             continue
-        wk = workers.setdefault(wname, {"name": wname, "cay": 0.0, "money": 0, "allowance": 0, "items": {}, "days": {}})
+        wk = workers.setdefault(wname, {"name": wname, "cay": 0.0, "money": 0, "allowance": 0,
+                                        "ot_money": 0, "ot_min": 0, "items": {}, "days": {}})
         it = wk["items"].setdefault(("", 0.0, False),
                                     {"code": "", "cay": 0.0, "wage": 0.0, "money": 0, "gio": 0.0, "hourly_rate": 0})
         it["money"] += amt
@@ -321,6 +343,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             "cay": round(sum(w["cay"] for w in worker_list), 1),
             "money": sum(w["money"] for w in worker_list),
             "allowance": sum(w["allowance"] for w in worker_list),
+            "ot_money": sum(w.get("ot_money", 0) for w in worker_list),
         },
         "missing_wage": sorted(c for c in missing if c),
     }
