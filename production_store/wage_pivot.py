@@ -89,7 +89,8 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
         "SELECT thread_id, worker_name, note_fold FROM production_note_resolved WHERE resolved_at >= ?",
         (EXACT_RULE_SINCE,)).fetchall()}
     wname_by_id = {w["id"]: w["name"] for w in workers}
-    flags: dict[tuple, tuple[str, bool]] = {}
+    raws: dict[tuple, str] = {}     # tên thợ THÔ trong báo cáo = khoá production_allowances
+    flags: dict[tuple, tuple[str, bool, str]] = {}   # (loại, đã xử lý, ghi chú thô của dòng)
     for r in conn.execute(
         "SELECT thread_id, worker_id, worker_name, note, tong_calc FROM production_report_rows "
         "WHERE report_ymd >= ? AND report_ymd <= ?", (dfrom, dto),
@@ -99,11 +100,12 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
         if n and n not in notes.get(key, ""):
             notes[key] = f"{notes[key]} · {n}" if notes.get(key) else n
         cays[key] = cays.get(key, 0.0) + float(r["tong_calc"] or 0)
+        raws.setdefault(key, str(r["worker_name"] or "").strip())
         kind = needs_review(wname_by_id.get(r["worker_id"]) or r["worker_name"] or "", n) if n else ""
         if kind:
             done = (int(r["thread_id"]), str(r["worker_name"] or ""), fold_note(n)) in resolved
             old = flags.get(key)
-            flags[key] = (kind, done and (old is None or old[1]))
+            flags[key] = (kind, done and (old is None or old[1]), n)
     pcs: dict[tuple, float] = {}
     pc_by: dict[tuple, str] = {}          # ai ghi phụ cấp: "auto" (rule ghi chú) | username
     wid_by_name = {(w["name"] or "").strip().casefold(): w["id"] for w in workers}
@@ -153,7 +155,7 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                     "start": it.get("start") or "", "end": it.get("end") or "",
                     "kind": kinds.get(tid, "san_xuat"),
                     "total": 0, "cells": {}, "parts": {}, "notes": {}, "pc": {}, "pc_by": {},
-                    "cay": {}, "ot_off": {}, "flag": {},
+                    "cay": {}, "ot_off": {}, "flag": {}, "raw": {},
                 })
                 m = int(it.get("money") or 0)
                 s["cells"][wid] = s["cells"].get(wid, 0) + m
@@ -187,13 +189,19 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
     # không làm cây mà phụ cấp vừa bị đặt về 0 thì compute_range_report không có dòng nào,
     # nhưng đó lại chính là ô cần văn phòng chú ý nhất.
     slip_by_tid = {tid: sl for d in days.values() for tid, sl in d["slips"].items()}
+    for (tid, wid), raw in raws.items():
+        sl = slip_by_tid.get(tid)
+        if sl is not None and wid in wname_by_id:
+            sl["raw"][wid] = raw        # popup sửa phụ cấp gửi ĐÚNG tên này (khớp khoá phụ cấp)
     for (tid, wid), fl in flags.items():
         sl = slip_by_tid.get(tid)
         if sl is None or wid not in wname_by_id:   # thợ lương thời gian: không có cột ở trang này
             continue
         # done = đã tick xử lý (sau khi đổi luật) HOẶC văn phòng đã nhập tay phụ cấp
         by = pc_by.get((tid, wid), "")
-        sl["flag"][wid] = {"kind": fl[0], "done": fl[1] or (bool(pcs.get((tid, wid))) and by not in ("", "auto"))}
+        # note = ghi chú THÔ đúng dòng bị gắn dấu — khoá tick "đã xử lý" (note_resolved) cần nó
+        sl["flag"][wid] = {"kind": fl[0], "done": fl[1] or (bool(pcs.get((tid, wid))) and by not in ("", "auto")),
+                           "note": fl[2]}
         if notes.get((tid, wid)):
             sl["notes"][wid] = notes[(tid, wid)]
         if cays.get((tid, wid)):
@@ -213,7 +221,7 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
         for s in slips:
             s["cells"] = {str(k): v for k, v in s["cells"].items() if v}
             s["parts"] = {str(k): v for k, v in s.get("parts", {}).items() if s["cells"].get(str(k))}
-            for fld in ("notes", "pc", "pc_by", "cay", "ot_off", "flag"):
+            for fld in ("notes", "pc", "pc_by", "cay", "ot_off", "flag", "raw"):
                 s[fld] = {str(k): v for k, v in s.get(fld, {}).items()}
         # thang màu heatmap lấy theo ô THEO NGÀY (ô phiếu luôn ≤ ô ngày nên cùng thang
         # thì view chi tiết nhạt đều — client tự chia thang riêng cho view phiếu)

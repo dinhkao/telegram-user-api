@@ -1627,7 +1627,8 @@ export type WagePivotSlip = { thread_id: number; code: string; kind?: string; st
   ot_off?: Record<string, boolean>;   // văn phòng đã TẮT tăng ca của thợ này ở phiếu này
   // ghi chú LỆCH câu chuẩn → auto KHÔNG trả phụ cấp, ô gắn ⚠. kind = loại note_review
   // (so_tien | mot_phan | la | khac_tho); done = đã tick xử lý hoặc đã nhập tay phụ cấp
-  flag?: Record<string, { kind: string; done: boolean }> };
+  flag?: Record<string, { kind: string; done: boolean; note?: string }>;
+  raw?: Record<string, string> };      // tên thợ THÔ trong báo cáo = khoá phụ cấp phiếu
 export type WagePivotDay = { ymd: string; total: number; cells: Record<string, number>; slips: WagePivotSlip[] };
 export type WagePivot = {
   from: string; to: string;

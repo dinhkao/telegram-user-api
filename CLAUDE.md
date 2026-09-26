@@ -1528,7 +1528,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     **bấm 1 ô = popup CẤU THÀNH số tiền ô đó** (`detail/WagePivotCell.tsx` + khối hình
     `WagePivotParts.tsx` + tính thuần `wagePivotData.ts`: thanh SP/TC/PC, trục giờ trong
     ngày có vùng tăng ca, so với thợ cùng phiếu, link phiếu/báo cáo/SP/thợ/lương/chấm công;
-    bấm phiếu/thợ trong popup = ĐI SÂU, nút ‹ hoặc BACK lùi 1 tầng), nhớ tháng/kiểu xem/vị trí cuộn theo phiên.
+    bấm phiếu/thợ trong popup = ĐI SÂU, nút ‹ hoặc BACK lùi 1 tầng; ô PHIẾU có khối SỬA PHỤ CẤP
+    `detail/WagePivotAllowance.tsx` — cùng API `/api/production/{tid}/allowance`, gửi tên thợ THÔ
+    `slips[].raw`, gợi ý theo số trong ghi chú + bằng người cao nhất/nhì; lưu 0 ở ô ⚠ = tick
+    "đã xử lý"; lưu xong trang tải lại, popup tra lại ô theo ymd/thread_id. ⚠ Link trong popup
+    KHÔNG được gọi onClose — đóng popup = history.back() cướp mất điều hướng của link), nhớ tháng/kiểu xem/vị trí cuộn theo phiên.
   - **Phiếu BÁO CÁO SX** (`production_store/report_slips.py` + `server_app/report_slip_routes.py`,
     office-only — tiền lương): văn phòng tạo phiếu chọn khoảng ngày (`production_report_slips`);
     nội dung TÍNH LIVE mỗi lần xem (tổng SP + tiền theo THỢ, tiền TỪNG PHIẾU SX, tổng cộng —

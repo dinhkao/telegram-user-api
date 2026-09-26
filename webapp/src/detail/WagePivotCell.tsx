@@ -21,6 +21,7 @@ import {
   slipTotalComp, soVN,
 } from "./wagePivotData";
 import { CompBar, DayTimeline, LinkChips, RankBars, Section, type LinkItem } from "./WagePivotParts";
+import { noteAmount, WagePivotAllowance, type AllowSuggest } from "./WagePivotAllowance";
 
 export type PivotCell =
   | { kind: "day"; day: WagePivotDay; wid: number }
@@ -52,13 +53,21 @@ function FlagBox({ kind, label, note, legacy }: { kind: "open" | "done"; label: 
   );
 }
 
-export function WagePivotCell({ cell, data, onClose }: {
+export function WagePivotCell({ cell, data, onClose, onChanged }: {
   cell: PivotCell; data: WagePivot; onClose: () => void;
+  onChanged?: () => void;             // đã sửa phụ cấp → trang tải lại bảng
 }) {
   usePopupBack(true, onClose);
   useScrollLock(true);
   const [stack, setStack] = useState<PivotCell[]>([cell]);
-  const cur = stack[stack.length - 1];
+  // Tra lại ngày/phiếu trong `data` MỚI NHẤT: sửa phụ cấp xong trang tải lại bảng, ngăn
+  // xếp vẫn giữ object cũ → phải map theo ymd/thread_id thì popup mới hiện số vừa lưu.
+  const live = (c: PivotCell): PivotCell => {
+    const day = data.days.find((d) => d.ymd === c.day.ymd) || c.day;
+    if (c.kind !== "slip") return { ...c, day };
+    return { ...c, day, slip: day.slips.find((x) => x.thread_id === c.slip.thread_id) || c.slip };
+  };
+  const cur = live(stack[stack.length - 1]);
   const push = (c: PivotCell) => setStack((s) => [...s, c]);
   const pop = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
 
@@ -96,6 +105,23 @@ export function WagePivotCell({ cell, data, onClose }: {
       const src = pcBy === "auto" ? "tự động theo ghi chú báo cáo" : pcBy ? `nhập tay · ${pcBy}` : "ghi trong phiếu";
       calc.push({ l: <>Phụ cấp<span class="wpc-why">{src}</span></>, r: money(c.pc), cls: "pc" });
     }
+    // gợi ý số phụ cấp: số viết trong ghi chú + bằng tiền (SP + tăng ca) người cao nhất/nhì phiếu
+    const sug: AllowSuggest[] = [];
+    const fromNote = noteAmount(note);
+    if (fromNote) sug.push({ label: "Theo ghi chú", amount: fromNote });
+    const tops = data.workers
+      .filter((x) => x.id !== wid)
+      .map((x) => { const k = slipComp(s, x.id); return { name: x.name, v: k.sp + k.tc }; })
+      .filter((x) => x.v > 0)
+      .sort((a, b) => b.v - a.v);
+    if (tops[0]) sug.push({ label: `Cao nhất · ${tops[0].name}`, amount: tops[0].v });
+    if (tops[1]) sug.push({ label: `Cao nhì · ${tops[1].name}`, amount: tops[1].v });
+    const fl = s.flag?.[w];
+    const editor = (
+      <WagePivotAllowance threadId={s.thread_id} worker={s.raw?.[w] || nameOf(wid)} current={c.pc} by={pcBy}
+        flag={fl ? { open: !fl.done, note: fl.note || note } : null} suggest={sug}
+        onSaved={() => onChanged?.()} />
+    );
     const mine = slipsOf(day, wid);
     const peers = data.workers
       .map((x) => ({ key: x.id, name: x.name, value: s.cells[String(x.id)] || 0, active: x.id === wid,
@@ -110,6 +136,7 @@ export function WagePivotCell({ cell, data, onClose }: {
         <>
           {s.flag?.[w] ? <FlagBox kind={s.flag[w].done ? "done" : "open"} label={FLAG_LABEL[s.flag[w].kind] || "ghi chú lệch chuẩn"} note={note}
             legacy={!s.flag[w].done && pcBy === "auto" ? c.pc : 0} /> : null}
+          {fl && !fl.done ? editor : null}
           <CompBar c={c} />
           <Section title="Cách tính">
             <div class="wpc-calc">
@@ -118,6 +145,7 @@ export function WagePivotCell({ cell, data, onClose }: {
               <div class="wpc-calc-row sum"><span>Tổng ô này</span><b>{money(c.total)}đ</b></div>
             </div>
           </Section>
+          {fl && !fl.done ? null : editor}
           {note ? <Section title="Ghi chú báo cáo"><blockquote class="wpc-quote">{note}</blockquote></Section> : null}
           <Section title="Giờ làm trong ngày" right={<span class="muted small">{span(s)}{mins ? ` · ${fmtDur(mins)}` : ""}</span>}>
             <DayTimeline sunday={isSunday(day.ymd)}

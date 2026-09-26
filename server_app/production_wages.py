@@ -328,4 +328,8 @@ async def set_allowance_handler(request: web.Request):
             conn.close()
 
     await asyncio.to_thread(_run)
+    # tiền phiếu đổi → khối tiền phiếu, bảng lương, lương SP theo ngày tải lại
+    from server_app.realtime import emit_production_changed, emit_productions_changed
+    emit_production_changed(tid)
+    emit_productions_changed()
     return web.json_response({"ok": True, "worker_name": worker, "amount": max(0.0, amount)})

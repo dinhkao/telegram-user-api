@@ -5053,3 +5053,25 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 .wpc-flag > b { font-size: .9rem; }
 .wpc-tag.flag { background: #f59e0b; color: #fff; }
 .wpc-tag.flag.done { background: var(--card2); color: var(--muted); }
+/* SỬA PHỤ CẤP ngay trong popup ô lương SP theo ngày (detail/WagePivotAllowance) */
+.wpa { display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; border: 1px solid var(--border);
+  border-radius: var(--r-md); background: var(--card); }
+.wpa.need { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b inset; }
+.wpa-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.wpa-head b { font-size: .9rem; }
+.wpa-head span { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.wpa-input { display: flex; align-items: baseline; gap: 4px; padding: 6px 12px; border: 1.5px solid var(--border);
+  border-radius: 10px; background: var(--card); }
+.wpa-input:focus-within { border-color: var(--primary); }
+.wpa-input input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink);
+  font: inherit; font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; padding: 0; }
+.wpa-input span { font-size: 1rem; font-weight: 700; color: var(--muted); }
+.wpa-read { margin-top: -3px; font-size: .76rem; color: var(--muted); text-align: right; }
+.wpa-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wpa-chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 10px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--ink); font: inherit;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wpa-chip span { font-size: .68rem; color: var(--muted); font-weight: 600; }
+.wpa-chip b { font-size: .86rem; font-variant-numeric: tabular-nums; }
+.wpa-chip.on { border-color: var(--primary); background: var(--accent-wash); }
+.wpa-save { width: 100%; padding: 11px; }

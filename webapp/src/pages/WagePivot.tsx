@@ -281,7 +281,7 @@ export function WagePivot() {
             </div>
           </>
         )}
-      {cell && data && <WagePivotCell cell={cell} data={data} onClose={() => setCell(null)} />}
+      {cell && data && <WagePivotCell cell={cell} data={data} onClose={() => setCell(null)} onChanged={load} />}
     </div>
   );
 }
