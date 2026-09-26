@@ -13,7 +13,14 @@ from __future__ import annotations
 import json
 import re
 
+from production_store.time_fmt import normalize_time, time_minutes
 from utils.db import transaction
+
+
+def _start_key(start: str) -> tuple[int, int]:
+    """Sắp theo giờ bắt đầu (phút trong ngày); không giờ → cuối."""
+    mins = time_minutes(start)
+    return (1, 0) if mins is None else (0, mins)
 
 _YMD = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -196,7 +203,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
                 b = json.loads(r["bang"] or "{}")
             except (TypeError, ValueError):
                 b = {}
-            times[r["tid"]] = (b.get("start") or "", b.get("end") or "")
+            times[r["tid"]] = (normalize_time(b.get("start")), normalize_time(b.get("end")))
     missing: set = set()
     allow_used: set = set()   # (tid, wname) đã cộng phụ cấp — chỉ cộng 1 lần
 
@@ -305,7 +312,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         for dy in wk["days"]:
             # theo giờ bắt đầu trong ngày (không giờ → cuối), rồi theo tiền
             dy["items"] = sorted(dy["items"].values(),
-                                 key=lambda x: (x["start"].zfill(5) if x["start"] else "￿", -x["money"]))
+                                 key=lambda x: (_start_key(x["start"]), -x["money"]))
 
     return {
         "workers": worker_list,

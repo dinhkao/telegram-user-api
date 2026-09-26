@@ -1249,6 +1249,7 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .wr-editcard .wr-meta { width: 90px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px;
   padding: 6px 8px; font-size: .82rem; background: var(--bg); color: var(--ink); flex: none; margin: 0; }
 .wr-editcard .wr-time { width: 62px; text-align: center; }
+.wr-editcard .wr-time-bad { border-color: var(--danger, #dc2626); color: var(--danger, #dc2626); }
 .prod-report-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 12px; }
 .prod-report-meta label { display: inline-flex; align-items: center; gap: 4px; }
 /* Pill trạng thái quyền sửa báo cáo (editor + badge trang chi tiết) */

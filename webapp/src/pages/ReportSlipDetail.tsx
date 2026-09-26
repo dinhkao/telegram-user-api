@@ -14,14 +14,9 @@ import { WorkerChips } from "../detail/WorkerChips";
 
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : ymd);
 const dm = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : ymd);
-import { moneyD as money } from "../format";
-// "7:00" / "7h" / "7" → "07:00"; giữ nguyên nếu không parse được
-const hhmm = (s: string) => {
-  const m = String(s || "").trim().match(/^(\d{1,2})(?:[:hg.](\d{1,2})?)?$/i);
-  if (!m) return s;
-  const h = m[1].padStart(2, "0"), mi = (m[2] || "0").padStart(2, "0");
-  return `${h}:${mi}`;
-};
+import { moneyD as money, normTime } from "../format";
+// giờ phiếu SX → "HH:MM" (luật chung ở format.ts::normTime)
+const hhmm = normTime;
 
 export function ReportSlipDetail({ id }: { id: string }) {
   const [slip, setSlip] = useState<ReportSlip | null>(null);

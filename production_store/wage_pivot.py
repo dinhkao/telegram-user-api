@@ -22,8 +22,9 @@ Nối: production_store.report_slips, worker_store. Client: webapp/src/pages/Wag
 """
 from __future__ import annotations
 
-import re
 from datetime import date, timedelta
+
+from production_store.time_fmt import time_minutes
 
 
 def _all_days(dfrom: str, dto: str) -> list[str]:
@@ -43,17 +44,12 @@ def _all_days(dfrom: str, dto: str) -> list[str]:
     return out
 
 
-_HHMM = re.compile(r"^\s*(\d{1,2})\s*[:h]\s*(\d{1,2})")
-
-
 def _time_key(start: str | None) -> tuple[int, int]:
     """Khoá SẮP XẾP phiếu theo GIỜ BẮT ĐẦU. Phải quy về PHÚT chứ không so chuỗi:
     "7:00" (1 chữ số giờ) so chuỗi sẽ đứng SAU "13:00" — đúng lỗi phiếu xếp lộn xộn.
     Phiếu không có giờ xếp CUỐI (không đoán chỗ cho nó)."""
-    m = _HHMM.match(str(start or ""))
-    if not m:
-        return (1, 0)
-    return (0, int(m.group(1)) * 60 + int(m.group(2)))
+    mins = time_minutes(start)
+    return (1, 0) if mins is None else (0, mins)
 
 
 def wage_pivot(conn, dfrom: str, dto: str) -> dict:

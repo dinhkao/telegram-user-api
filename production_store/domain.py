@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from production_store.time_fmt import normalize_time
+
 # Column indices in the semicolon layout.
 _C_NAME = 0
 _C_GACH = 1
@@ -157,9 +159,9 @@ def parse_report(text: str) -> dict:
         if date is None and len(cells) > _C_DATE and cells[_C_DATE]:
             date = cells[_C_DATE]
         if start is None and len(cells) > _C_START and cells[_C_START]:
-            start = cells[_C_START]
+            start = normalize_time(cells[_C_START]) or None
         if end is None and len(cells) > _C_END and cells[_C_END]:
-            end = cells[_C_END]
+            end = normalize_time(cells[_C_END]) or None
     return {"product_code": product_code, "date": date, "start": start, "end": end, "rows": rows}
 
 

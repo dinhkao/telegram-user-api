@@ -16,6 +16,7 @@ import { Icon } from "../ui/Icon";
 import { processImage } from "../detail/imageProcess";
 import { WorkerOrderPopup } from "../detail/WorkerOrderPopup";
 import { SelectPopup } from "../ui/SelectPopup";
+import { normTime, isTimeOk } from "../format";
 
 // Gợi ý sẵn cho ô GHI CHÚ (bấm ô → popup chọn nhanh); gõ text khác vẫn được
 // (qua nút "Tạo …" của popup) nhưng KHÔNG nạp vào list gợi ý.
@@ -82,8 +83,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       const rep = s.bang as ProdReport | null;
       setWrows(rowsFromReport(rep, defaultsRef.current));
       if ((rep as any)?.date) setDate((rep as any).date);
-      if ((rep as any)?.start) setStart((rep as any).start);
-      if ((rep as any)?.end) setEnd((rep as any).end);
+      if ((rep as any)?.start) setStart(normTime((rep as any).start));
+      if ((rep as any)?.end) setEnd(normTime((rep as any).end));
       seeded.current = true;
     }
   };
@@ -276,7 +277,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       c[5] = String(tong); c[6] = r.spDe.trim(); c[7] = r.mamDe.trim();
       c[12] = (r.gio || "").trim();   // số giờ làm (SP tính lương theo giờ)
       c[13] = CODE; c[14] = date.trim();
-      c[17] = String(soMam); c[18] = start.trim(); c[19] = end.trim();
+      c[17] = String(soMam); c[18] = normTime(start); c[19] = normTime(end);
       return c.join(";");
     });
     return ["thợ;gạch;trừ;lẻ;ghi chú", ...lines].join("\n");
@@ -342,7 +343,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         <div class="prod-report-meta">
           {slip.sp_name && <span><Icon name="box" size={14} /> {slip.sp_name}</span>}
           <label><Icon name="calendar" size={14} /> <input class="wr-meta" value={date} disabled={readOnly} onInput={(e: any) => setDate(e.target.value)} placeholder="d/m/yyyy" /></label>
-          <label><Icon name="clock" size={14} /> <input class="wr-meta wr-time" value={start} disabled={readOnly} onInput={(e: any) => setStart(e.target.value)} placeholder="bắt đầu" />–<input class="wr-meta wr-time" value={end} disabled={readOnly} onInput={(e: any) => setEnd(e.target.value)} placeholder="xong" /></label>
+          {/* Giờ: 1 format HH:MM — gõ "7" / "7.30" / "1330" / "4.15" (=16:15), rời ô là tự quy về 07:00… */}
+          <label title="Giờ bắt đầu – xong (HH:MM). Gõ 7 · 7.30 · 1330; giờ 1–6 hiểu là buổi chiều"><Icon name="clock" size={14} /> <input class={"wr-meta wr-time" + (isTimeOk(start) ? "" : " wr-time-bad")} inputMode="decimal" value={start} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setStart(e.target.value)} onBlur={() => setStart((v) => normTime(v))} placeholder="07:00" />–<input class={"wr-meta wr-time" + (isTimeOk(end) ? "" : " wr-time-bad")} inputMode="decimal" value={end} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setEnd(e.target.value)} onBlur={() => setEnd((v) => normTime(v))} placeholder="11:00" /></label>
         </div>
         {scm <= 0 && <div class="prod-save-msg">⚠️ SP chưa có số cây 1 mâm — chọn mã SP để tính tổng.</div>}
 

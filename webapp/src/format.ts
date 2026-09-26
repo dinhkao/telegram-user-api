@@ -233,3 +233,26 @@ export function invoiceTotal(invoice: any[]): number {
 export function paidTotal(payments: any[]): number {
   return (payments || []).reduce((sum, p) => sum + (parseInt(p.amount, 10) || 0), 0);
 }
+
+// GIỜ bắt đầu/xong của báo cáo phiếu SX → 1 format "HH:MM" (24h). GƯƠNG của
+// production_store/time_fmt.py::normalize_time — đổi luật phải đổi CẢ HAI.
+// "7h5"→"07:05" (phút 1 chữ số là PHÚT) · "13g40"/"13.40"/"1340"→"13:40" · "10"→"10:00"
+// · giờ 1–6 = buổi CHIỀU viết tắt ("4h15"→"16:15") vì xưởng chỉ làm 7h–18h.
+// Rỗng → "". Không hiểu → trả NGUYÊN chuỗi (đã trim) để UI tô đỏ, không mất chữ.
+export function normTime(v: any): string {
+  const raw = String(v ?? "").trim();
+  if (!raw) return "";
+  const t = raw.toLowerCase().replace(/\s+/g, "").replace(/[_'"]+$/, "").replace(/(ph|p)$/, "");
+  let hs: string, ms: string;
+  if (/^\d{3,4}$/.test(t)) { hs = t.slice(0, -2); ms = t.slice(-2); }
+  else {
+    const m = t.match(/^(\d{1,2})(?:[:hg.,](\d{1,2})?)?$/);
+    if (!m) return raw;
+    hs = m[1]; ms = m[2] || "0";
+  }
+  let h = Number(hs); const mi = Number(ms);
+  if (h >= 1 && h <= 6) h += 12;
+  if (h > 23 || mi > 59) return raw;
+  return `${pad2(h)}:${pad2(mi)}`;
+}
+export const isTimeOk = (v: any) => { const s = String(v ?? "").trim(); return !s || /^\d{2}:\d{2}$/.test(normTime(s)); };
