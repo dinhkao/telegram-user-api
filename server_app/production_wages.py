@@ -17,9 +17,9 @@ from datetime import datetime, timedelta, timezone
 from aiohttp import web
 
 from order_db import _get_connection
-from production_store.overtime import OT_PCT, ot_money, overtime_map
+from production_store.overtime import OT_PCT, ot_money
 from production_store.overtime_off import is_off, off_keys
-from production_store.time_fmt import normalize_time
+from production_store.overtime_slip import overtime_for_rows, slip_overtime
 from production_store.wages import wage_per_cay
 
 _VN = timezone(timedelta(hours=7))
@@ -42,21 +42,6 @@ def office_user(request: web.Request) -> dict | None:
     if not username or not is_office_username(username):
         return None
     return get_user(username)
-
-
-def _overtime_for(rows) -> dict:
-    """Tăng ca theo giờ phiếu cho các dòng (cần cột tid/ymd/worker/cay/bang)."""
-    import json
-    times: dict = {}
-    for r in rows:
-        if r["tid"] not in times:
-            try:
-                b = json.loads(r["bang"] or "{}")
-            except (TypeError, ValueError):
-                b = {}
-            times[r["tid"]] = (normalize_time(b.get("start")), normalize_time(b.get("end")))
-    return overtime_map([(r["tid"], r["ymd"], r["worker"] or "?") for r in rows
-                         if float(r["cay"] or 0) > 0], times)
 
 
 def _today_vn() -> str:
@@ -116,7 +101,7 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
     finally:
         conn.close()
 
-    ots = _overtime_for(rows)   # (tid, thợ) → (phút TC, tỉ lệ) theo giờ ghi trong phiếu
+    ots = overtime_for_rows(rows)   # (tid, thợ) → (phút TC, tỉ lệ) theo giờ ghi trong phiếu
 
     def _mk_day(ymd):
         return days.setdefault(ymd, {"ymd": ymd, "money": 0, "cay": 0.0, "allowance": 0, "workers": {}})
@@ -266,35 +251,9 @@ def _phieu_wages(thread_id: int) -> dict:
                 "custom": slip_wage is not None and float(slip_wage) != default_wage,
                 "allowances": get_allowances(conn, thread_id),
                 "hourly_rates": hourly,
-                "overtime": _slip_overtime(conn, thread_id), "ot_pct": OT_PCT}
+                "overtime": slip_overtime(conn, thread_id), "ot_pct": OT_PCT}
     finally:
         conn.close()
-
-
-def _slip_overtime(conn, thread_id: int) -> dict:
-    """{tên thợ trong báo cáo: {min, frac}} tăng ca của 1 phiếu. Giờ kết thúc CUỐI NGÀY
-    của thợ quyết định có tăng ca hay không → phải đọc mọi phiếu cùng ngày."""
-    rows = conn.execute(
-        "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
-        "COALESCE(w.name, t.worker_name) AS worker, SUM(t.tong_calc) AS cay, s.bang AS bang "
-        "FROM production_report_rows t "
-        "LEFT JOIN production_workers w ON w.id = t.worker_id "
-        "LEFT JOIN production_slips s ON s.thread_id = t.thread_id "
-        "WHERE t.report_ymd IN (SELECT DISTINCT report_ymd FROM production_report_rows "
-        "                       WHERE thread_id = ? AND report_ymd IS NOT NULL) "
-        "GROUP BY t.thread_id, t.worker_name, COALESCE(w.name, t.worker_name)",
-        (thread_id,),
-    ).fetchall()
-    ots = _overtime_for(rows)
-    ot_off = off_keys(conn, [thread_id])
-    out = {}
-    for r in rows:
-        v = ots.get((r["tid"], r["worker"] or "?"))
-        if r["tid"] == thread_id and v:
-            # off = văn phòng đã tắt TC dòng này → client hiện nút ở trạng thái tắt, không cộng tiền
-            out[r["wname"]] = {"min": v[0], "frac": round(v[1], 4),
-                               "off": is_off(ot_off, thread_id, r["wname"])}
-    return out
 
 
 async def phieu_wages_handler(request: web.Request):

@@ -35,6 +35,12 @@ async def set_overtime_handler(request: web.Request):
         conn = _get_connection()
         try:
             set_ot_enabled(conn, tid, worker, on, by=str(user.get("username") or ""))
+            # mốc phụ cấp auto = tiền SP SAU tăng ca → bật/tắt TC là tính lại phụ cấp auto
+            try:
+                from production_store.allowance_auto import reapply_slip
+                reapply_slip(conn, tid)
+            except Exception:  # noqa: BLE001 — phụ, không chặn thao tác bật/tắt
+                pass
         finally:
             conn.close()
 

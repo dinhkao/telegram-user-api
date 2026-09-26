@@ -109,3 +109,46 @@ def test_ot_toggle_off_per_worker(conn):
     set_ot_enabled(conn, 2, "Mai", True)
     set_ot_enabled(conn, 2, "Mai", True)
     assert off_keys(conn, [2]) == set()
+
+
+def _slip(conn, tid, st, en, rows):
+    """Phiếu + mirror: rows = [(thợ, cây, ghi chú)]."""
+    bang = {"start": st, "end": en, "product_code": "K1",
+            "rows": [{"name": n, "tong_calc": c, "note": note} for n, c, note in rows]}
+    conn.execute("INSERT OR REPLACE INTO production_slips VALUES (?,?,?,?,?)",
+                 (tid, "K1", 1000, "san_xuat", json.dumps(bang)))
+    conn.execute("DELETE FROM production_report_rows WHERE thread_id = ?", (tid,))
+    conn.executemany(
+        "INSERT INTO production_report_rows (thread_id, report_ymd, worker_name, product_code, tong_calc)"
+        " VALUES (?,?,?,?,?)", [(tid, MON, n, "K1", c) for n, c, _ in rows])
+    return bang
+
+
+def _allow(conn, tid):
+    return {r[0]: r[1] for r in conn.execute(
+        "SELECT worker_name, amount FROM production_allowances WHERE thread_id = ?", (tid,))}
+
+
+def test_auto_allowance_uses_money_after_overtime(conn):
+    from production_store.allowance_auto import apply_auto_allowances
+    # 16:30–17:30 → 50% thời gian là TC: Hiền 100 cây = 100.000 + 10.000 phụ trội
+    bang = _slip(conn, 2, "16:30", "17:30", [("Hiền", 100, ""), ("Kim", 0, "vít kẹo")])
+    apply_auto_allowances(conn, 2, bang)
+    assert _allow(conn, 2) == {"Kim": 110_000}
+
+
+def test_auto_allowance_follows_ot_toggle_and_same_day_slip(conn):
+    from production_store.allowance_auto import apply_auto_allowances, reapply_slip
+    from production_store.overtime_off import set_ot_enabled
+    # phiếu 1 kết thúc 17:10 (chưa quá 17:15) → chưa có TC
+    b1 = _slip(conn, 1, "16:10", "17:10", [("Hiền", 60, ""), ("Kim", 0, "vít")])
+    apply_auto_allowances(conn, 1, b1)
+    assert _allow(conn, 1) == {"Kim": 60_000}
+    # phiếu 2 cùng ngày kéo Hiền tới 17:30 → phiếu 1 có 10' TC (1/6) → +2.000
+    _slip(conn, 2, "17:10", "17:30", [("Hiền", 20, "")])
+    reapply_slip(conn, 1)
+    assert _allow(conn, 1) == {"Kim": 62_000}
+    # văn phòng tắt TC của Hiền ở phiếu 1 → mốc về lại số không TC
+    set_ot_enabled(conn, 1, "Hiền", False)
+    reapply_slip(conn, 1)
+    assert _allow(conn, 1) == {"Kim": 60_000}

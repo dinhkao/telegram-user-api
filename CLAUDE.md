@@ -611,7 +611,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   phiếu lương TUẦN theo sản xuất, `renderers/phieu_luong.py`.)
   **PHỤ CẤP TỰ ĐỘNG theo ghi chú báo cáo (`production_store/allowance_auto.py`)**: bảng
   `RULES` = (tên thợ đã bỏ dấu, từ khoá ghi chú, **mốc**) → phụ cấp = tiền SP của mốc đó
-  trong CÙNG phiếu. Mốc 2 kiểu: **SỐ = HẠNG** (0 = cao nhất bảng, 1 = cao nhì…) hoặc
+  trong CÙNG phiếu — **ĐÃ GỒM phụ trội TĂNG CA** của phiếu (2026-09-26; dòng văn phòng tắt TC
+  thì không cộng; TC đọc qua `production_store/overtime_slip.py`). Vì TC xét theo giờ xong
+  CUỐI NGÀY, `set_bang` áp lại rule cho CẢ các phiếu cùng ngày (`reapply_slip`), và bật/tắt
+  TC (`production_overtime_routes`) cũng áp lại cho phiếu đó. Mốc 2 kiểu: **SỐ = HẠNG** (0 = cao nhất bảng, 1 = cao nhì…) hoặc
   **CHỮ = TÊN 1 THỢ ĐÍCH DANH** (Tâm "vô kẹo" + Tâm/Vĩ việc DỪA → bằng tiền **Trọng**,
   vì Trọng lúc hạng 3 lúc hạng 4 nên hạng không tả được; thợ mốc VẮNG MẶT trong phiếu →
   không ghi gì, giữ nguyên số cũ). Việc DỪA gom ở hằng `_DUA` = 3 cách ghi cùng 1 việc

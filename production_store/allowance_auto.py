@@ -1,7 +1,7 @@
 """PHỤ CẤP TỰ ĐỘNG theo GHI CHÚ báo cáo thợ — chạy mỗi lần lưu báo cáo (set_bang).
 
 Rule (sửa bảng RULES bên dưới): thợ X có ghi chú chứa từ khoá Y → phụ cấp = TIỀN SP
-(không tính phụ cấp) của người cao nhất/nhì bảng phiếu đó, HOẶC của 1 thợ ĐÍCH DANH
+(ĐÃ GỒM phụ trội tăng ca, không tính phụ cấp) của người cao nhất/nhì bảng phiếu đó, HOẶC của 1 thợ ĐÍCH DANH
 (mốc ghi bằng tên thay vì hạng). ⚠ Ghi chú có SỐ TIỀN viết thẳng ("vít 25k") thì lấy
 ĐÚNG số đó, bỏ qua mốc — xem parse_note_amount. Ai có ghi chú "nghỉ" → xoá phụ cấp. Ghi với updated_by='auto' — văn phòng sửa tay (updated_by khác) thì
 auto KHÔNG đè nữa (trừ rule "nghỉ" vẫn ép xoá). Nối: production_allowances (qua
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 
+from production_store.overtime import ot_money
 from vn import vn_normalize
 
 # ── Bảng RULE: ({tên thợ đã bỏ dấu}, (từ khoá ghi chú đã bỏ dấu, ...), mốc) ──
@@ -135,7 +136,10 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
 def _pieces_from_bang(conn, thread_id: int, bang: dict) -> list[dict]:
     """[{name, piece, note, hour}] từ blob bang vừa lưu — cùng công thức khối tiền công
     UI: dòng có GIỜ (phiếu sản xuất) = giờ × tiền-1-giờ của thợ (hour=True), còn lại =
-    cây × đơn giá chốt theo phiếu (fallback bảng lương)."""
+    cây × đơn giá chốt theo phiếu (fallback bảng lương) + PHỤ TRỘI TĂNG CA của dòng đó
+    (production_store.overtime — Duy chốt 2026-09-26: mốc phụ cấp là số SAU tăng ca;
+    dòng văn phòng đã tắt TC thì không cộng). TC đọc từ mirror production_report_rows
+    nên set_bang phải ghi mirror TRƯỚC khi gọi."""
     rows = bang.get("rows") or []
     if not rows:
         return []
@@ -155,6 +159,11 @@ def _pieces_from_bang(conn, thread_id: int, bang: dict) -> list[dict]:
             "SELECT name, hourly_rate FROM production_workers").fetchall()}
     except Exception:
         hourly = {}
+    try:
+        from production_store.overtime_slip import slip_overtime
+        ot = {str(k).strip().casefold(): v for k, v in slip_overtime(conn, thread_id).items()}
+    except Exception:  # noqa: BLE001 — thiếu mirror/bảng → coi như không có tăng ca
+        ot = {}
     out = []
     for r in rows:
         name = str(r.get("name") or "").strip()
@@ -163,7 +172,12 @@ def _pieces_from_bang(conn, thread_id: int, bang: dict) -> list[dict]:
         gio = float(r.get("so_gio") or 0) if hourly_ok else 0.0
         cay = float(r.get("tong_calc") or 0)
         rate = hourly.get(vn_normalize(name), 0.0)
-        piece = round(gio * rate) if gio > 0 else round(cay * wage)
+        if gio > 0:
+            piece = round(gio * rate)
+        else:
+            o = ot.get(name.casefold())
+            frac = o["frac"] if o and not o.get("off") else 0.0
+            piece = round(cay * wage) + ot_money(cay, wage, frac)
         out.append({"name": name, "piece": piece, "note": str(r.get("note") or ""), "hour": gio > 0})
     return out
 
@@ -201,6 +215,19 @@ def plan_auto_allowances(conn, thread_id: int, bang: dict) -> list[dict]:
             continue                     # không đổi — khỏi ghi lại
         out.append({"name": name, "old": (cur[0] if cur else 0.0), "new": float(tgt)})
     return out
+
+
+def reapply_slip(conn, thread_id: int) -> None:
+    """Áp lại rule cho 1 phiếu ĐÃ LƯU (đọc bang từ DB) — dùng khi TIỀN của phiếu đổi mà
+    báo cáo không đổi: phiếu cùng ngày đổi giờ xong (TC đổi), văn phòng bật/tắt TC."""
+    import json
+    r = conn.execute("SELECT bang FROM production_slips WHERE thread_id = ?", (thread_id,)).fetchone()
+    try:
+        bang = json.loads(r[0]) if r and r[0] else {}
+    except (TypeError, ValueError):
+        bang = {}
+    if isinstance(bang, dict) and bang.get("rows"):
+        apply_auto_allowances(conn, thread_id, bang)
 
 
 def apply_auto_allowances(conn, thread_id: int, bang: dict) -> None:

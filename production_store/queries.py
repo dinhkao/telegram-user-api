@@ -239,6 +239,18 @@ def set_bang(conn, thread_id, bang) -> bool:
         apply_auto_allowances(conn, thread_id, bang)
     except Exception:
         pass
+    # Mốc phụ cấp đã gồm TĂNG CA, mà TC xét theo giờ xong CUỐI NGÀY của thợ → phiếu này
+    # đổi giờ là TC của phiếu CÙNG NGÀY cũng đổi → áp lại rule cho các phiếu đó.
+    try:
+        from production_store.allowance_auto import reapply_slip
+        from production_store.overtime_slip import same_day_slips
+        for tid in same_day_slips(conn, thread_id):
+            try:
+                reapply_slip(conn, tid)
+            except Exception:
+                pass
+    except Exception:
+        pass
     return ok
 
 
