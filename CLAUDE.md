@@ -1552,8 +1552,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     → bảng lương (`tc_sp`/`tc_sp_min`, tách dòng ở popup Lương SP), phiếu báo cáo, pivot
     (parts `ot`), khối tiền phiếu (`/wages` trả `overtime` + `ot_pct`, client tự nhân).
     Trang nhập báo cáo hiện gợi ý "⏱ Tăng ca N phút" (chỉ theo giờ phiếu đó).
-    **TẮT tăng ca từng thợ trong 1 phiếu** (mặc định BẬT): công tắc ở khối tiền phiếu
-    (`detail/ProductionWages.tsx`, office) → POST `/api/production/{tid}/overtime
+    **TẮT tăng ca từng thợ trong 1 phiếu** (mặc định BẬT): chip "TC" bấm bật/tắt ở khối tiền phiếu
+    (`detail/ProductionWages.tsx`, office — bố cục DANH SÁCH không bảng (2026-09-26) để
+    điện thoại xem trọn không cuộn ngang: tổng phiếu + thanh cấu thành 3 màu SP/TC/PC ở
+    đầu, mỗi thợ 1 dòng kèm chip TC + chip PC (popup chọn nhanh / tự nhập / bỏ) + thanh
+    cấu thành cùng thang; bảng "Báo cáo theo thợ" dùng bản gọn `.prr` — ghi chú nằm dưới
+    tên, không cột riêng) → POST `/api/production/{tid}/overtime
     {worker_name, on}` (`server_app/production_overtime_routes.py`) → bảng
     `production_ot_off` (`production_store/overtime_off.py`, có row = TẮT; khoá tên thợ
     snapshot như production_allowances, đổi tên thợ cascade; bảng tạo lúc bấm tắt lần

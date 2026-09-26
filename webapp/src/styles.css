@@ -1171,29 +1171,70 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .muted.small, .small { font-size: .8rem; }
 
 .prod-report-table tr.prod-row-off td { color: var(--muted); }
-/* Khối tiền công + phụ cấp (chỉ văn phòng) */
-/* Bảng tiền công + phụ cấp: DÙNG CHUNG skin .prod-report-table với bảng báo cáo
-   theo thợ (card-head + prod-report-meta + prod-report-scroll y hệt) — .pw-table
-   chỉ thêm delta cần thiết cho ô input. */
-.pw-table td { vertical-align: middle; }
-.pw-name { font-weight: 700; }
-.pw-worker-note { margin-top: 2px; color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
-.pw-piece { font-variant-numeric: tabular-nums; }
-.pw-sub { font-size: .68rem; font-weight: 400; }
-/* công tắc TĂNG CA từng thợ trong khối tiền phiếu SX (ProductionWages) */
-.pw-ot { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
-.pw-ot .tgl { width: 34px; height: 19px; border-radius: 10px; }
-.pw-ot .tgl-knob { width: 13px; height: 13px; }
-.pw-ot .tgl.on .tgl-knob { left: 17px; }
-.pw-ot-off { text-decoration: line-through; }
-.pw-total { font-weight: 700; font-variant-numeric: tabular-nums; }
-.pw-table tfoot td { font-variant-numeric: tabular-nums; }   /* nền+đậm thừa hưởng từ .prod-report-table */
+/* Bảng "Báo cáo theo thợ" (chi tiết phiếu SX) — bản GỌN không cuộn ngang trên điện thoại:
+   chỉ kẻ ngang, cột số hẹp tabular, cột Thợ co giãn + ghi chú xuống dòng dưới tên. */
+.prr { font-size: .84rem; font-variant-numeric: tabular-nums; }
+.prr th, .prr td { border: 0; border-bottom: 1px solid var(--border); padding: 7px 4px; }
+.prr th { font-size: .7rem; font-weight: 600; color: var(--muted); letter-spacing: .02em; padding-top: 4px; padding-bottom: 6px; }
+.prr th:first-child, .prr td:first-child { padding-left: 0; }
+.prr th:last-child, .prr td:last-child { padding-right: 0; }
+.prr td.prr-name { white-space: normal; width: 100%; }
+.prr-note { font-size: .72rem; color: var(--muted); line-height: 1.25; margin-top: 1px; overflow-wrap: anywhere; }
+.prr tr.prod-row-off .wr-tho-link { color: var(--muted); font-weight: 500; }
+.prr tfoot td { background: transparent; border-bottom: 0; border-top: 2px solid var(--ink); font-size: .88rem; }
+/* ── Khối TIỀN CÔNG + PHỤ CẤP (ProductionWages, chỉ văn phòng) — DANH SÁCH, không bảng:
+   điện thoại xem trọn không cuộn ngang. 3 màu cấu thành dùng thống nhất: tiền SP = primary,
+   tăng ca = warn, phụ cấp = ok (thanh tổng phiếu + thanh từng thợ + chip). */
+.pwl { --pwl-sp: var(--primary); --pwl-tc: #e8a33d; --pwl-pc: #34a853; }
+.pwl-sum { background: var(--card2); border-radius: var(--r-md); padding: 10px 12px; margin-bottom: 4px; }
+.pwl-sum-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.pwl-sum-lbl { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+.pwl-sum-val { font-size: 1.45rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.01em; line-height: 1.15; }
+.pwl-wage { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.pwl-wage-in { display: flex; align-items: center; gap: 4px; }
+.pwl-wage-in .pw-input { width: 76px; background: var(--card); }
+.pwl-wage-note { font-size: .7rem; color: var(--warn); white-space: nowrap; }
+.pwl-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; background: transparent; margin-top: 6px; }
+.pwl-bar.big { height: 8px; border-radius: 4px; background: var(--border); margin-top: 10px; }
+.pwl-bar i { display: block; height: 100%; flex: none; }
+.pwl-bar i.sp, .pwl-legend i.sp { background: var(--pwl-sp); }
+.pwl-bar i.tc, .pwl-legend i.tc { background: var(--pwl-tc); }
+.pwl-bar i.pc, .pwl-legend i.pc { background: var(--pwl-pc); }
+.pwl-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: .78rem; color: var(--muted); }
+.pwl-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.pwl-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.pwl-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pwl-list { list-style: none; margin: 0; padding: 0; }
+.pwl-row { padding: 10px 0 9px; border-bottom: 1px solid var(--border); }
+.pwl-row:last-child { border-bottom: 0; padding-bottom: 2px; }
+.pwl-row.idle { padding: 7px 0; }
+.pwl-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.pwl-name { flex: none; font-size: .95rem; }
+.pwl-note { min-width: 0; flex: 1 1 auto; font-size: .75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pwl-total { margin-left: auto; flex: none; font-variant-numeric: tabular-nums; font-size: .95rem; }
+.pwl-total.zero { color: var(--muted-2); font-weight: 500; }
+.pwl-row.idle .pwl-name { color: var(--muted); font-weight: 500; }
+.pwl-row.idle .pwl-top { align-items: center; }
+.pwl-bits { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; }
+.pwl-calc { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-right: auto; }
+/* chip bấm được: TC = công tắc tăng ca, PC = phụ cấp */
+.pwl-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 10px; border-radius: var(--r-pill);
+  border: 1px dashed var(--border); background: transparent; color: var(--muted); font: inherit; font-size: .76rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+.pwl-chip:active { transform: scale(.97); }
+.pwl-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.pwl-chip.pc.on { border: 1px solid transparent; background: var(--ok-wash); color: var(--ok); }
+.pwl-chip.tc { border-style: solid; }
+.pwl-chip.tc .pwl-amt { text-decoration: line-through; }
+.pwl-chip.tc.on { border-color: transparent; background: var(--warn-wash); color: var(--warn); }
+.pwl-chip.tc.on .pwl-amt { text-decoration: none; }
+.pwl-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; box-sizing: border-box; }
+.pwl-chip.tc.on .pwl-dot { background: var(--pwl-tc); border-color: var(--pwl-tc); }
+.pwl-row.idle .pwl-chip { min-height: 24px; }
 .pw-input { width: 82px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px; font: inherit; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; background: var(--card); color: var(--ink); }
 .pw-input:focus { border-color: var(--primary); outline: none; }
 /* Đơn giá lương CHỐT theo phiếu */
-.pw-wage-lbl { font-size: .86rem; font-weight: 700; }
 .pw-wage-input { font-weight: 700; }
-.pw-wage-note { white-space: nowrap; }
 
 /* ── Chuyển kho hàng loạt (#/chuyen-kho) ── */
 .bm-step { margin-bottom: 16px; }

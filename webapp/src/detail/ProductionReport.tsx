@@ -79,27 +79,31 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
               </span>
             )}
           </div>
+          {/* .prr = bảng GỌN cho điện thoại: ghi chú nằm DƯỚI tên thợ (không cột riêng),
+              cột số hẹp → vừa màn 360px không phải cuộn ngang */}
           <div class="prod-report-scroll">
-            <table class="prod-report-table">
+            <table class="prod-report-table prr">
               <thead>
-                <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th>{hasGio && <th title="Số giờ làm — SP tính lương theo giờ">Giờ</th>}<th>Mâm</th><th>Tổng SP</th><th>Ghi chú</th></tr>
+                <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th>{hasGio && <th title="Số giờ làm — SP tính lương theo giờ">Giờ</th>}<th>Mâm</th><th>Tổng</th></tr>
               </thead>
               <tbody>
                 {liveRows.map((r, i) => (
                   <tr key={i} class={r.tong_calc > 0 || ((r as any).so_gio || 0) > 0 ? "" : "prod-row-off"}>
-                    <td>{r.name ? <a class="wr-tho-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a> : ""}</td>
+                    <td class="prr-name">
+                      {r.name ? <a class="wr-tho-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a> : ""}
+                      {r.note ? <div class="prr-note">{r.note}</div> : null}
+                    </td>
                     <td>{soVN(r.so_gach)}</td>
                     <td>{soVN(r.so_tru)}</td>
                     <td>{soVN(r.so_cay_le)}</td>
                     {hasGio && <td class="wr-gio">{(r as any).so_gio != null ? soVN((r as any).so_gio) : ""}</td>}
                     <td class={r.mam_de != null ? "wr-ovr" : ""} title={r.mam_de != null ? "Mâm đè" : undefined}>{soVN(r.so_mam)}</td>
                     <td class={"strong" + (r.sp_de != null ? " wr-ovr" : "")} title={r.sp_de != null ? "SP đè" : undefined}>{soVN(r.tong_calc)}</td>
-                    <td>{r.note || ""}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr><td colSpan={hasGio ? 6 : 5}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td></td></tr>
+                <tr><td colSpan={hasGio ? 6 : 5}>Tổng cộng</td><td class="strong">{soVN(grand)}</td></tr>
               </tfoot>
             </table>
           </div>
